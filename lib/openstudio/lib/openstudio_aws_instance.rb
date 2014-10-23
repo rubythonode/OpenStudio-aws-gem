@@ -87,20 +87,35 @@ class OpenStudioAwsInstance
     # true?
   end
 
-  def launch_instance(image_id, instance_type, user_data, user_id, ebs_volume_size = nil)
+  def launch_instance(image_id, instance_type, user_data, user_id, options = {})
     # logger.info("user_data #{user_data.inspect}")
-    instance = {
-      image_id: image_id,
-      key_name: @key_pair_name,
-      security_groups: [@security_group_name],
-      user_data: Base64.encode64(user_data),
-      instance_type: instance_type,
-      placement: {
-        availability_zone: 'us-east-1c'
-      },
-      min_count: 1,
-      max_count: 1
-    }
+    instance = nil
+    if options[:availability_zone]
+      # use the availability zone from the server
+      # logger.info("user_data #{user_data.inspect}")
+      instance = {
+          image_id: image_id,
+          key_name: @key_pair_name,
+          security_groups: [@security_group_name],
+          user_data: Base64.encode64(user_data),
+          instance_type: instance_type,
+          placement: {
+              availability_zone: options[:availability_zone]
+          },
+          min_count: 1,
+          max_count: 1
+      }
+    else
+      instance = {
+          image_id: image_id,
+          key_name: @key_pair_name,
+          security_groups: [@security_group_name],
+          user_data: Base64.encode64(user_data),
+          instance_type: instance_type,
+          min_count: 1,
+          max_count: 1
+      }
+    end
     result = @aws.run_instances(instance)
 
     # determine how many processors are suppose to be in this image (lookup for now?)
@@ -135,8 +150,8 @@ class OpenStudioAwsInstance
       raise "Instance was unable to launch due to timeout #{aws_instance.instance_id}"
     end
 
-    if ebs_volume_size
-      create_and_attach_volume(ebs_volume_size, aws_instance.instance_id, aws_instance.placement.availability_zone)
+    if options[:ebs_volume_size]
+      create_and_attach_volume(options[:ebs_volume_size], aws_instance.instance_id, aws_instance.placement.availability_zone)
     end
 
     # now grab information about the instance
@@ -165,6 +180,7 @@ class OpenStudioAwsInstance
         # private_key_path: "#{File.expand_path(@private_key_path)}"
         #:private_key => @private_key, # need to stop printing this out
         location: 'AWS',
+        availability_zone: @data.availability_zone,
         server: {
           id: @data.id,
           ip: 'http://' + @data.ip,
@@ -359,8 +375,8 @@ class OpenStudioAwsInstance
   # store some of the data into a custom struct.  The instance is the full description.  The remaining fields are
   # just easier accessors to the data in the raw request except for procs which is a custom request.
   def create_struct(instance, procs)
-    instance_struct = Struct.new(:instance, :id, :ip, :dns, :procs)
-    s = instance_struct.new(instance, instance[:instance_id], instance[:public_ip_address], instance[:public_dns_name], procs)
+    instance_struct = Struct.new(:instance, :id, :ip, :dns, :procs, :availability_zone)
+    s = instance_struct.new(instance, instance[:instance_id], instance[:public_ip_address], instance[:public_dns_name], procs, instance[:placement][:availability_zone])
 
     # store some values into the member variables
     @ip_address = instance[:public_ip_address]

@@ -275,9 +275,9 @@ class OpenStudioAwsWrapper
     end
   end
 
-  def launch_server(image_id, instance_type, options = {})
-    defaults = { user_id: 'unknown_user' }
-    options = defaults.merge(options)
+  def launch_server(image_id, instance_type, launch_options = {})
+    defaults = { user_id: 'unknown_user', ebs_volume_size: nil }
+    launch_options = defaults.merge(launch_options)
 
     user_data = File.read(File.expand_path(File.dirname(__FILE__)) + '/server_script.sh')
     @server = OpenStudioAwsInstance.new(@aws, :server, @key_pair_name, @security_group_name, @group_uuid, @private_key, @private_key_file_name, @proxy)
@@ -286,12 +286,12 @@ class OpenStudioAwsWrapper
 
     fail 'image_id is nil' unless image_id
     fail 'instance type is nil' unless instance_type
-    @server.launch_instance(image_id, instance_type, user_data, options[:user_id], options[:ebs_volume_size])
+    @server.launch_instance(image_id, instance_type, user_data, launch_options[:user_id], launch_options)
   end
 
-  def launch_workers(image_id, instance_type, num, options = {})
-    defaults = { user_id: 'unknown_user' }
-    options = defaults.merge(options)
+  def launch_workers(image_id, instance_type, num, launch_options = {})
+    defaults = { user_id: 'unknown_user', tags: [], ebs_volume_size: nil, availability_zone: @server.data.availability_zone }
+    launch_options = defaults.merge(launch_options)
 
     user_data = File.read(File.expand_path(File.dirname(__FILE__)) + '/worker_script.sh.template')
     user_data.gsub!(/SERVER_IP/, @server.data.ip)
@@ -309,7 +309,7 @@ class OpenStudioAwsWrapper
     @workers.each do |worker|
       threads << Thread.new do
         # create the EBS volumes instead of the ephemeral storage - needed especially for the m3 instances (SSD)
-        worker.launch_instance(image_id, instance_type, user_data, options[:user_id], options[:ebs_volume_size])
+        worker.launch_instance(image_id, instance_type, user_data, launch_options[:user_id], launch_options)
       end
     end
     threads.each { |t| t.join }
