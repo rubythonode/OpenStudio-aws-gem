@@ -90,7 +90,7 @@ class OpenStudioAwsInstance
   def launch_instance(image_id, instance_type, user_data, user_id, options = {})
     # logger.info("user_data #{user_data.inspect}")
     instance = nil
-    if options[:availability_zone]
+    #if options[:availability_zone]
       # use the availability zone from the server
       # logger.info("user_data #{user_data.inspect}")
       instance = {
@@ -100,22 +100,22 @@ class OpenStudioAwsInstance
           user_data: Base64.encode64(user_data),
           instance_type: instance_type,
           placement: {
-              availability_zone: options[:availability_zone]
+              availability_zone: 'us-east-1a' #options[:availability_zone]
           },
           min_count: 1,
           max_count: 1
       }
-    else
-      instance = {
-          image_id: image_id,
-          key_name: @key_pair_name,
-          security_groups: [@security_group_name],
-          user_data: Base64.encode64(user_data),
-          instance_type: instance_type,
-          min_count: 1,
-          max_count: 1
-      }
-    end
+    # else
+    #   instance = {
+    #       image_id: image_id,
+    #       key_name: @key_pair_name,
+    #       security_groups: [@security_group_name],
+    #       user_data: Base64.encode64(user_data),
+    #       instance_type: instance_type,
+    #       min_count: 1,
+    #       max_count: 1
+    #   }
+    # end
     result = @aws.run_instances(instance)
 
     # determine how many processors are suppose to be in this image (lookup for now?)
