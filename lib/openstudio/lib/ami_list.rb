@@ -115,9 +115,27 @@ class OpenStudioAmis
 
   private
 
+  # fetch the URL with redirects
+  def fetch(uri_str, limit = 10)
+    # You should choose better exception.
+    fail ArgumentError, 'HTTP redirect too deep' if limit == 0
+
+    url = URI.parse(uri_str)
+    req = Net::HTTP::Get.new(url.path)
+    response = Net::HTTP.start(url.host, url.port) { |http| http.request(req) }
+    case response
+      when Net::HTTPSuccess then
+        response
+      when Net::HTTPRedirection then
+        fetch(response['location'], limit - 1)
+      else
+        response.error!
+    end
+  end
+
   def retrieve_json(endpoint)
     result = nil
-    resp = Net::HTTP.get_response(@options[:host], endpoint)
+    resp = fetch("http://#{@options[:host]}/#{endpoint}")
     if resp.code == '200'
       result = JSON.parse(resp.body, symbolize_names: true)
     else
